@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+"""
+A Nagios/Opsview plug-in to monitor Jenkins slaves
+
+Author: Peter Pakos <peter.pakos@wandisco.com>
+"""
+
+from __future__ import print_function
+
+import argparse
+import os
+import sys
+from jenkins import Jenkins, JenkinsException
+
+
+class Main(object):
+    _version = '17.5.30'
+    _name = os.path.basename(sys.argv[0])
+
+    def __init__(self):
+        self._args = self._parse_args()
+        self._username = self._args.username
+        self._password = self._args.password
+        self._url = self._args.url
+        self._warning = self._args.warning
+        self._critical = self._args.critical
+        self._exit_codes = {
+            0: 'OK',
+            1: 'WARNING',
+            2: 'CRITICAL',
+            3: 'UNKNOWN'
+        }
+
+    def _parse_args(self):
+        parser = argparse.ArgumentParser(description='A Nagios/Opsview plug-in to monitor Jenkins slaves')
+        parser.add_argument('--version', action='version', version='%s %s' %
+                            (self._name, self._version))
+        parser.add_argument('-u', '--username', help='username', dest='username', required=True)
+        parser.add_argument('-p', '--password', help='password', dest='password', required=True)
+        parser.add_argument('-U', '--url', help='Jenkins instance URL', dest='url', required=True)
+        parser.add_argument('-w', '--warning', help='warning threshold (default: %(default)s)', dest='warning',
+                            default=1, type=int)
+        parser.add_argument('-c', '--critical', help='critical threshold (default: %(default)s)', dest='critical',
+                            default=1, type=int)
+        return parser.parse_args()
+
+    def _die(self, exit_code, message):
+        print('%s - %s' % (self._exit_codes[exit_code], message))
+        exit(exit_code)
+
+    def run(self):
+        offline_nodes = []
+
+        nodes = None
+        try:
+            server = Jenkins(
+                url=self._url,
+                username=self._username,
+                password=self._password
+            )
+            nodes = server.get_nodes()
+        except JenkinsException as e:
+            self._die(3, e.message)
+
+        for node in nodes:
+            if node.get('offline'):
+                offline_nodes.append(node.get('name'))
+
+        n = len(offline_nodes)
+
+        if n == 0:
+            exit_message = 'All nodes are online'
+        else:
+            s = '' if n == 1 else 's'
+            exit_message = '%s offline node%s: %s' % (n, s, ', '.join(offline_nodes))
+
+        if n >= self._critical:
+            exit_code = 2
+        elif n >= self._warning:
+            exit_code = 1
+        else:
+            exit_code = 0
+
+        self._die(exit_code, exit_message)
+
+if __name__ == '__main__':
+    try:
+        main = Main()
+        main.run()
+    except KeyboardInterrupt:
+        print('\nCancelling...')
