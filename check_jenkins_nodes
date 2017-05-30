@@ -11,10 +11,11 @@ import argparse
 import os
 import sys
 from jenkins import Jenkins, JenkinsException
+from xml.etree import ElementTree
 
 
 class Main(object):
-    _version = '17.5.30a'
+    _version = '17.5.30b'
     _name = os.path.basename(sys.argv[0])
 
     def __init__(self):
@@ -52,6 +53,7 @@ class Main(object):
         offline_nodes = []
         server = None
         nodes = None
+        excluded = 0
 
         try:
             server = Jenkins(
@@ -66,7 +68,12 @@ class Main(object):
         for node in nodes:
             if node.get('offline'):
                 offline_reason = server.get_node_info(node.get('name')).get('offlineCauseReason')
-                if 'exclud' not in offline_reason.lower():
+                node_descritpion = ElementTree.fromstring(server.get_node_config(node.get('name')))
+                node_descritpion = str(node_descritpion.find('description').text)
+
+                if 'exclud' in offline_reason.lower() or 'exclud' in node_descritpion.lower():
+                    excluded += 1
+                else:
                     offline_nodes.append(node.get('name'))
 
         n = len(offline_nodes)
@@ -76,6 +83,9 @@ class Main(object):
         else:
             s = '' if n == 1 else 's'
             exit_message = '%s offline node%s: %s' % (n, s, ', '.join(offline_nodes))
+
+        if excluded:
+            exit_message = '%s (%s excluded)' % (exit_message, excluded)
 
         if n >= self._critical:
             exit_code = 2
