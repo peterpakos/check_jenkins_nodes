@@ -14,7 +14,7 @@ from jenkins import Jenkins, JenkinsException
 
 
 class Main(object):
-    _version = '17.5.30'
+    _version = '17.5.30a'
     _name = os.path.basename(sys.argv[0])
 
     def __init__(self):
@@ -50,8 +50,9 @@ class Main(object):
 
     def run(self):
         offline_nodes = []
-
+        server = None
         nodes = None
+
         try:
             server = Jenkins(
                 url=self._url,
@@ -64,7 +65,9 @@ class Main(object):
 
         for node in nodes:
             if node.get('offline'):
-                offline_nodes.append(node.get('name'))
+                offline_reason = server.get_node_info(node.get('name')).get('offlineCauseReason')
+                if 'exclud' not in offline_reason.lower():
+                    offline_nodes.append(node.get('name'))
 
         n = len(offline_nodes)
 
