@@ -10,12 +10,12 @@ from __future__ import print_function
 import argparse
 import os
 import sys
-from jenkins import Jenkins, JenkinsException
+from jenkins import Jenkins, JenkinsException, NotFoundException
 from xml.etree import ElementTree
 
 
 class Main(object):
-    _version = '17.5.30b'
+    _version = '17.6.1'
     _name = os.path.basename(sys.argv[0])
 
     def __init__(self):
@@ -67,9 +67,16 @@ class Main(object):
 
         for node in nodes:
             if node.get('offline'):
-                offline_reason = server.get_node_info(node.get('name')).get('offlineCauseReason')
-                node_descritpion = ElementTree.fromstring(server.get_node_config(node.get('name')))
-                node_descritpion = str(node_descritpion.find('description').text)
+                try:
+                    offline_reason = server.get_node_info(node.get('name')).get('offlineCauseReason')
+                except NotFoundException:
+                    offline_reason = ''
+
+                try:
+                    node_descritpion = ElementTree.fromstring(server.get_node_config(node.get('name')))
+                    node_descritpion = str(node_descritpion.find('description').text)
+                except NotFoundException:
+                    node_descritpion = ''
 
                 if 'exclud' in offline_reason.lower() or 'exclud' in node_descritpion.lower():
                     excluded += 1
