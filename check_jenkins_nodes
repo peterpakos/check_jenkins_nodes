@@ -15,7 +15,7 @@ from xml.etree import ElementTree
 
 
 class Main(object):
-    _version = '17.6.1'
+    _version = '1.0.0'
     _name = os.path.basename(sys.argv[0])
 
     def __init__(self):
@@ -75,8 +75,11 @@ class Main(object):
                 try:
                     node_descritpion = ElementTree.fromstring(server.get_node_config(node.get('name')))
                     node_descritpion = str(node_descritpion.find('description').text)
-                except NotFoundException:
+                except (NotFoundException, AttributeError):
                     node_descritpion = ''
+
+                except JenkinsException as e:
+                    self._die(3, e.message)
 
                 if 'exclud' in offline_reason.lower() or 'exclud' in node_descritpion.lower():
                     excluded += 1
